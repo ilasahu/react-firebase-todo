@@ -4,6 +4,7 @@ import "./App.css";
 import axios from "./axios-test";
 import { error } from "util";
 import _ from "lodash";
+import firebase from "./Firebase";
 
 class App extends Component {
   constructor(props) {
@@ -57,11 +58,7 @@ class App extends Component {
         <header className="App-header">
           <label>
             Enter Task:
-            <input
-              type="text"
-              onChange={this.handleChange}
-              value={this.state.currentValue}
-            />
+            <input type="text" onChange={this.handleChange} />
           </label>
           {myButton}
           <ul>{tasks}</ul>
@@ -74,58 +71,50 @@ class App extends Component {
     this.setState({ currentValue: event.target.value });
   }
   getData() {
-    axios
-      .get("https://react-test-cc0ba.firebaseio.com/todo.json")
-      .then(response => {
-        this.setState({ todos: response.data });
-      })
-      .catch(error => {
-        console.log(error);
+    firebase
+      .database()
+      .ref("todo/")
+      .on("value", snapshot => {
+        this.setState({ todos: snapshot.val() });
       });
   }
 
   addData() {
-    this.setState({ loading: true });
-    const testOrder = {
-      caption: this.state.currentValue,
-      isCompleted: false
-    };
-    axios
-      .post("/todo.json", testOrder)
-      .then(response => {
-        this.setState({ loading: false, currentValue: "" });
-        this.getData();
+    firebase
+      .database()
+      .ref("todo")
+      .push()
+      .set({
+        caption: this.state.currentValue,
+        isCompleted: false
       })
-      .catch(error => console.log(error));
+      .then(response => {
+        this.setState({ currentValue: null });
+        console.log("successfully added");
+      });
   }
   deleteTask(key) {
-    axios
-      .delete("/todo/" + key + ".json")
-      .then(res => {
-        this.getData();
-      })
-      .catch(e => console.log(e));
+    firebase
+      .database()
+      .ref("todo/" + key)
+      .remove();
   }
 
   toggle(key) {
-    axios
-      .get("todo/" + key + ".json")
-      .then(response => {
-        const newData = {
-          caption: response.data.caption,
-          isCompleted: !response.data.isCompleted
-        };
-        axios
-          .put("todo/" + key + "/.json", newData)
-          .then(putResponse => {
-            this.getData();
-          })
-          .catch(putError => {
-            console.log(putError);
-          });
-      })
-      .catch(error => {
-        console.log(error);
+    firebase
+      .database()
+      .ref("todo/" + key)
+      .once("value", snapshot => {
+        console.log("toggle called");
+        console.log(snapshot.val());
+
+        var updates = {};
+        updates["/todo/" + key + "/isCompleted"] = !snapshot.val().isCompleted;
+
+        firebase
+          .database()
+          .ref()
+          .update(updates);
       });
   }
 }
